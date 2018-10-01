@@ -1,0 +1,9 @@
+#!/bin/bash
+
+tmux has -t rshman 2>/dev/null && {
+    echo Killing tmux session...
+    tmux kill-session -t rshman
+}
+
+echo Remove all socket files...
+rm -f .SOCK:*

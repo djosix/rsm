@@ -1,0 +1,4 @@
+.SOCK:*
+.vscode
+.DS_Store
+.*.swp
