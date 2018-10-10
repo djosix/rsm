@@ -86,6 +86,7 @@ rsm_help() {
     echo "Usage: rsm <COMMAND> [OPTIONS...]
 
     rsm <PORT>          Start a reverse shell listener on PORT
+    rsm -d <PORT>       Start a detatched reverse shell listener on PORT
     rsm list            List active rsm listeners
     rsm info <PORT>     Show details of listener on PORT
     rsm info            Show details of all rsm listeners
@@ -113,7 +114,7 @@ _start() {
     local dir=$rsm_temp_dir/$port
     local session=rsm-$port
     mkdir -p $dir
-    tmux new -s $session -n rsm_main "
+    tmux new -s $session -n rsm_main $rsm_tmux_option "
     echo Starting...
     echo
     echo   '   =============================================== '
@@ -123,7 +124,7 @@ _start() {
     echo
     ncat -c '
         src=\$NCAT_REMOTE_ADDR:\$NCAT_REMOTE_PORT
-        name=client:\$src:\$(date +%Y%m%d%H%M%S)
+        name=client-\${src}-\$(date +%Y.%m.%d-%H:%M:%S)
         tmux new-window -t $session -n \$src \"
             echo \$(date), connection from: \$src
             echo ________________________________________________________________
@@ -150,7 +151,11 @@ _start() {
 
 _stop() {
     local port=$1
-    tmux kill-session -t rsm-$port
+    local session=rsm-$port
+    _clean $port
+    echo Killing $session
+    tmux kill-session -t $session
+    rm -rf $rsm_temp_dir/$port
 }
 
 _clean() {
@@ -160,6 +165,7 @@ _clean() {
         | grep -v rsm_main \
         | cut -d: -f1)"
     for i in $windows; do
+        echo Killing $session:$i
         tmux kill-window -t $session:$i
     done
     rm -f $rsm_temp_dir/$port/*
@@ -182,9 +188,8 @@ _info() {
     local port=$1
     local dir=$rsm_temp_dir/$port
     echo $port
-    echo ----------------------------------
     cd $dir
-    ls 2>/dev/null | sed 's/^/  /g'
+    ls 2>/dev/null | sed 's/^/- /g'
     echo
 }
 
@@ -198,18 +203,17 @@ _check_port_valid() {
 }
 
 _check_exist_rsm() {
-    local port=$1
-    tmux has -t rsm-$port 2>/dev/null \
+    [[ `_list_sessions` ]] \
         || _error "Nothing listening."
 }
 
 _check_exist_rsm_at() {
-    [[ `tmux ls 2>/dev/null | egrep "^rsm-$1:" 2>/dev/null` ]] \
+    [[ `tmux ls 2>/dev/null | egrep "^rsm-$port:" 2>/dev/null` ]] \
         || _error "Nothing listening on port $1."
 }
 
 _check_no_rsm_at() {
-    [[ `tmux ls 2>/dev/null | egrep "^rsm-$1:" 2>/dev/null` ]] \
+    [[ `tmux ls 2>/dev/null | egrep "^rsm-$port:" 2>/dev/null` ]] \
         && _error "Already listening on port $1."
 }
 
@@ -228,6 +232,14 @@ _check_requirements() {
 [[ $# = 0 ]] && _error "$(rsm_help)"
 
 case $1 in
+detatched|d|-d|--detatched)
+    if [[ $# = 2 ]]; then
+        rsm_tmux_option=-d
+        rsm_start $2
+    else
+        _error 'Wrong number of arguments.' rsm_help
+    fi
+    ;;
 stop|s|-s|--stop)
     if [[ $# = 1 ]]; then
         rsm_stop_all

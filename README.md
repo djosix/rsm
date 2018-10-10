@@ -51,6 +51,7 @@ $ rsm help
 Usage: rsm <COMMAND> [OPTIONS...]
 
     rsm <PORT>          Start a reverse shell listener on PORT
+    rsm -d <PORT>       Start a detatched reverse shell listener on PORT
     rsm list            List active rsm listeners
     rsm info <PORT>     Show details of listener on PORT
     rsm info            Show details of all rsm listeners
