@@ -54,7 +54,7 @@ rsm_attach() {
     _check_requirements
     _check_port_valid $port
     _check_exist_rsm_at $port
-    _attach $rpot
+    _attach $port
 }
 
 rsm_attach_last() {
