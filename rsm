@@ -229,7 +229,7 @@ _check_requirements() {
 
 #===================================================================================
 
-[[ $# = 0 ]] && _error "$(rsm_help)"
+[[ $# = 0 ]] && _error "No argument." rsm_help
 
 case $1 in
 detatched|d|-d|--detatched)
