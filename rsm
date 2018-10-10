@@ -1,0 +1,288 @@
+#!/bin/bash
+
+rsm_temp_dir=/tmp/.rsm
+top_pid=$$
+
+rsm_start() {
+    local port=$1
+    _check_requirements
+    _check_port_valid $port
+    _check_no_rsm_at $port
+    _start $port
+}
+
+rsm_list() {
+    _check_requirements
+    _check_exist_rsm
+    _list_ports
+}
+
+rsm_info() {
+    local port=$1
+    _check_requirements
+    _check_port_valid $port
+    _check_exist_rsm_at $port
+    _info $port
+}
+
+rsm_info_all() {
+    _check_requirements
+    _check_exist_rsm
+    for port in `_list_ports`; do
+        _info $port
+    done
+}
+
+rsm_stop() {
+    local port=$1
+    _check_requirements
+    _check_port_valid $port
+    _check_exist_rsm_at $port
+    _stop $port
+}
+
+rsm_stop_all() {
+    _check_requirements
+    _check_exist_rsm
+    for port in `_list_ports`; do
+        _stop $port
+    done
+}
+
+rsm_attach() {
+    local port=$1
+    _check_requirements
+    _check_port_valid $port
+    _check_exist_rsm_at $port
+    _attach $rpot
+}
+
+rsm_attach_last() {
+    _check_requirements
+    _check_exist_rsm
+    local port=`_list_ports | tail -1`
+    _check_port_valid $port
+    _check_exist_rsm_at $port
+    _attach $port
+}
+
+rsm_clean() {
+    local port=$1
+    _check_requirements
+    _check_port_valid $port
+    _check_exist_rsm_at $port
+    _clean $port
+}
+
+rsm_clean_all() {
+    _check_requirements
+    _check_exist_rsm
+    for port in `_list_ports`; do
+        _clean $port
+    done
+}
+
+rsm_help() {
+    echo "Usage: rsm <COMMAND> [OPTIONS...]
+
+    rsm <PORT>          Start a reverse shell listener on PORT
+    rsm list            List active rsm listeners
+    rsm info <PORT>     Show details of listener on PORT
+    rsm info            Show details of all rsm listeners
+    rsm stop <PORT>     Stop a rsm listener on PORT
+    rsm stop            Stop all rsm listeners
+    rsm attach <PORT>   Attach to a rsm session listening on PORT
+    rsm attach          Attach to the last rsm session
+    rsm clean <PORT>    Clean sockets for PORT
+    rsm clean           Clean all sockets
+    rsm help            Show this help message
+"
+}
+
+#===================================================================================
+
+_error() {
+    ( >&2 echo "Error: $1" ); $2
+    kill -s TERM $top_pid
+}
+
+trap 'exit' TERM
+
+_start() {
+    local port=$1
+    local dir=$rsm_temp_dir/$port
+    local session=rsm-$port
+    mkdir -p $dir
+    tmux new -s $session -n rsm_main "
+    echo Starting...
+    echo
+    echo   '   =============================================== '
+    echo   '  || Thanks for using the Reverse Shell Manager. ||'
+    printf '  || RSM will be listening on port %5d.        ||\n' $port
+    echo   '   =============================================== ' 
+    echo
+    ncat -c '
+        src=\$NCAT_REMOTE_ADDR:\$NCAT_REMOTE_PORT
+        name=client:\$src:\$(date +%Y%m%d%H%M%S)
+        tmux new-window -t $session -n \$src \"
+            echo \$(date), connection from: \$src
+            echo ________________________________________________________________
+            sleep 1
+            ncat -U $dir/\$name
+        \"
+        ncat -lU $dir/\$name
+        rm -f $dir/\$name
+        ' -vlk $port || {
+            echo
+            echo '   ========================================== '
+            echo '  || Window will be closed after 5 seconds, ||'
+            echo '  || because there was an error.            ||'
+            echo '   ========================================== '
+            echo
+            for i in 5 4 3 2 1; do
+                echo -n \$i
+                sleep 1
+            done
+        }
+    rm -rf $dir
+    "
+}
+
+_stop() {
+    local port=$1
+    tmux kill-session -t rsm-$port
+}
+
+_clean() {
+    local port=$1
+    local session=rsm-$port
+    local windows="$(tmux list-windows -t $session \
+        | grep -v rsm_main \
+        | cut -d: -f1)"
+    for i in $windows; do
+        tmux kill-window -t $session:$i
+    done
+    rm -f $rsm_temp_dir/$port/*
+}
+
+_attach() {
+    local port=$1
+    tmux attach -t "rsm-$port"
+}
+
+_list_sessions() {
+    tmux ls 2>/dev/null | egrep '^rsm-\d+:' | sed 's/:.*//g'
+}
+
+_list_ports() {
+    _list_sessions | sed 's/^rsm-//g'
+}
+
+_info() {
+    local port=$1
+    local dir=$rsm_temp_dir/$port
+    echo $port
+    echo ----------------------------------
+    cd $dir
+    ls 2>/dev/null | sed 's/^/  /g'
+    echo
+}
+
+_check_port_valid() {
+    [[ $1 ]] \
+        || _error "Port cannot be empty."
+    [[ $1 =~ ^-?[0-9]+$ ]] \
+        || _error "Port must be a number."
+    [[ $((0 < $1 && $1 < 65536)) = 1 ]] \
+        || _error "Port is out of range."
+}
+
+_check_exist_rsm() {
+    local port=$1
+    tmux has -t rsm-$port 2>/dev/null \
+        || _error "Nothing listening."
+}
+
+_check_exist_rsm_at() {
+    [[ `tmux ls 2>/dev/null | egrep "^rsm-$1:" 2>/dev/null` ]] \
+        || _error "Nothing listening on port $1."
+}
+
+_check_no_rsm_at() {
+    [[ `tmux ls 2>/dev/null | egrep "^rsm-$1:" 2>/dev/null` ]] \
+        && _error "Already listening on port $1."
+}
+
+_check_exist_command() {
+    which $1 >/dev/null 2>&1 \
+        || _error "'$1' doesn't exist."
+}
+
+_check_requirements() {
+    _check_exist_command tmux
+    _check_exist_command ncat
+}
+
+#===================================================================================
+
+[[ $# = 0 ]] && _error "$(rsm_help)"
+
+case $1 in
+stop|s|-s|--stop)
+    if [[ $# = 1 ]]; then
+        rsm_stop_all
+    elif [[ $# = 2 ]]; then
+        rsm_stop $2
+    else
+        _error 'Wrong number of arguments.' rsm_help
+    fi
+    ;;
+clean|cl|c|-c|--clean)
+    if [[ $# = 1 ]]; then
+        rsm_clean_all
+    elif [[ $# = 2 ]]; then
+        rsm_clean $2
+    else
+        _error 'Wrong number of arguments.' rsm_help
+    fi
+    ;;
+attach|at|a|-a|--attach)
+    if [[ $# = 1 ]]; then
+        rsm_attach_last
+    elif [[ $# = 2 ]]; then
+        rsm_attach $2
+    else
+        _error 'Wrong number of arguments.' rsm_help
+    fi
+    ;;
+list|ls|l|-l|--list)
+    if [[ $# = 1 ]]; then
+        rsm_list
+    else
+        _error 'Wrong number of arguments.' rsm_help
+    fi
+    ;;
+info|i|-i|--info)
+    if [[ $# = 1 ]]; then
+        rsm_info_all
+    elif [[ $# = 2 ]]; then
+        rsm_info $2
+    else
+        _error 'Wrong number of arguments.' rsm_help
+    fi
+    ;;
+'help'|'h'|'-h'|'--help')
+    if [[ $# = 1 ]]; then
+        rsm_help
+    else
+        _error 'Wrong number of arguments.' rsm_help
+    fi
+    ;;
+*)
+    if [[ $# = 1 ]]; then
+        rsm_start $1
+    else
+        _error 'Unknown command.' rsm_help
+    fi
+    ;;
+esac

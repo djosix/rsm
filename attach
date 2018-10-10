@@ -1,7 +1,0 @@
-#!/bin/bash
-
-if tmux has -t rshman; then
-    tmux attach -t rshman
-else
-    echo Not started
-fi
