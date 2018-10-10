@@ -48,18 +48,18 @@ git clone --depth 1 https://github.com/djosix/rsm.git ~/.rsm
 
 ```shell
 $ rsm help
-Usage: rsm <COMMAND> [OPTIONS...]
+Usage:
 
-    rsm <PORT>          Start a reverse shell listener on PORT
-    rsm -d <PORT>       Start a detatched reverse shell listener on PORT
+    rsm PORT            Start a reverse shell listener on PORT
+    rsm -d PORT         Start a detatched reverse shell listener on PORT
     rsm list            List active rsm listeners
-    rsm info <PORT>     Show details of listener on PORT
+    rsm info PORT       Show details of listener on PORT
     rsm info            Show details of all rsm listeners
-    rsm stop <PORT>     Stop a rsm listener on PORT
+    rsm stop PORT       Stop a rsm listener on PORT
     rsm stop            Stop all rsm listeners
-    rsm attach <PORT>   Attach to a rsm session listening on PORT
+    rsm attach PORT     Attach to a rsm session listening on PORT
     rsm attach          Attach to the last rsm session
-    rsm clean <PORT>    Clean sockets for PORT
+    rsm clean PORT      Clean sockets for PORT
     rsm clean           Clean all sockets
     rsm help            Show this help message
 ```
