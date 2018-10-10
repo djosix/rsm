@@ -177,7 +177,7 @@ _attach() {
 }
 
 _list_sessions() {
-    tmux ls 2>/dev/null | egrep '^rsm-\d+:' | sed 's/:.*//g'
+    tmux ls 2>/dev/null | grep -E '^rsm-[0-9]+:' | sed 's/:.*//g'
 }
 
 _list_ports() {
@@ -208,12 +208,12 @@ _check_exist_rsm() {
 }
 
 _check_exist_rsm_at() {
-    [[ `tmux ls 2>/dev/null | egrep "^rsm-$port:" 2>/dev/null` ]] \
+    [[ `tmux ls 2>/dev/null | grep -E "^rsm-$port:" 2>/dev/null` ]] \
         || _error "Nothing listening on port $1."
 }
 
 _check_no_rsm_at() {
-    [[ `tmux ls 2>/dev/null | egrep "^rsm-$port:" 2>/dev/null` ]] \
+    [[ `tmux ls 2>/dev/null | grep -E "^rsm-$port:" 2>/dev/null` ]] \
         && _error "Already listening on port $1."
 }
 
