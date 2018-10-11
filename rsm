@@ -190,7 +190,6 @@ _info() {
     echo $port
     cd $dir
     ls 2>/dev/null | sed 's/^/- /g'
-    echo
 }
 
 _check_port_valid() {
@@ -283,7 +282,7 @@ info|i|-i|--info)
         _error 'Wrong number of arguments.' rsm_help
     fi
     ;;
-'help'|'h'|'-h'|'--help')
+help|h|-h|--help)
     if [[ $# = 1 ]]; then
         rsm_help
     else

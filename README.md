@@ -37,6 +37,8 @@ Stop the server and cleanup
 # Stop all rsm listeners
 ```
 
+[![asciicast](https://asciinema.org/a/n5KdNGnDYunp5QFzpZh7OgHsg.png)](https://asciinema.org/a/n5KdNGnDYunp5QFzpZh7OgHsg)
+
 ## Install
 
 ```shell
