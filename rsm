@@ -86,17 +86,17 @@ rsm_help() {
     echo "Usage:
 
     rsm PORT            Start a reverse shell listener on PORT
-    rsm -d PORT         Start a detatched reverse shell listener on PORT
-    rsm list            List active rsm listeners
-    rsm info PORT       Show details of listener on PORT
-    rsm info            Show details of all rsm listeners
-    rsm stop PORT       Stop a rsm listener on PORT
-    rsm stop            Stop all rsm listeners
-    rsm attach PORT     Attach to a rsm session listening on PORT
-    rsm attach          Attach to the last rsm session
-    rsm clean PORT      Clean sockets for PORT
-    rsm clean           Clean all sockets
-    rsm help            Show this help message
+    rsm d[etached] PORT Start a detached reverse shell listener on PORT
+    rsm l[ist]          List active rsm listeners
+    rsm i[nfo] PORT     Show details of listener on PORT
+    rsm i[nfo]          Show details of all rsm listeners
+    rsm s[top] PORT     Stop a rsm listener on PORT
+    rsm s[top]          Stop all rsm listeners
+    rsm a[ttach] PORT   Attach to a rsm session listening on PORT
+    rsm a[ttach]        Attach to the last rsm session
+    rsm c[lean] PORT    Clean sockets for PORT
+    rsm c[lean]         Clean all sockets
+    rsm h[elp]          Show this help message
 "
 }
 
@@ -119,7 +119,7 @@ _start() {
     echo
     echo   '   =============================================== '
     echo   '  || Thanks for using the Reverse Shell Manager. ||'
-    printf '  || RSM will be listening on port %5d.        ||\n' $port
+    printf '  || RSM will be listening on port %-6s        ||\n' $port'.'
     echo   '   =============================================== ' 
     echo
     ncat -c '
@@ -231,7 +231,7 @@ _check_requirements() {
 [[ $# = 0 ]] && _error "No argument." rsm_help
 
 case $1 in
-detatched|d|-d|--detatched)
+detached|d|-d|--detached)
     if [[ $# = 2 ]]; then
         rsm_tmux_option=-d
         rsm_start $2
