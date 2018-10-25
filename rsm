@@ -1,6 +1,7 @@
 #!/bin/bash
 
 rsm_temp_dir=/tmp/.rsm
+rsm_tmux_sock=$rsm_temp_dir/tmux_socket
 top_pid=$$
 
 rsm_start() {
@@ -114,7 +115,7 @@ _start() {
     local dir=$rsm_temp_dir/$port
     local session=rsm-$port
     mkdir -p $dir
-    tmux new -s $session -n rsm_main $rsm_tmux_option "
+    tmux -S $rsm_tmux_sock new -s $session -n listener $rsm_tmux_option "
     echo Starting...
     echo
     echo   '   =============================================== '
@@ -125,7 +126,7 @@ _start() {
     ncat -c '
         src=\$NCAT_REMOTE_ADDR:\$NCAT_REMOTE_PORT
         name=client-\${src}-\$(date +%Y.%m.%d-%H:%M:%S)
-        tmux new-window -t $session -n \$src \"
+        tmux -S $rsm_tmux_sock new-window -t $session -n \$src \"
             echo \$(date), connection from: \$src
             echo ________________________________________________________________
             sleep 1
@@ -154,30 +155,30 @@ _stop() {
     local session=rsm-$port
     _clean $port
     echo Killing $session
-    tmux kill-session -t $session
+    tmux -S $rsm_tmux_sock kill-session -t $session
     rm -rf $rsm_temp_dir/$port
 }
 
 _clean() {
     local port=$1
     local session=rsm-$port
-    local windows="$(tmux list-windows -t $session \
-        | grep -v rsm_main \
+    local windows="$(tmux -S $rsm_tmux_sock list-windows -t $session \
+        | grep -v listener \
         | cut -d: -f1)"
     for i in $windows; do
         echo Killing $session:$i
-        tmux kill-window -t $session:$i
+        tmux -S $rsm_tmux_sock kill-window -t $session:$i
     done
     rm -f $rsm_temp_dir/$port/*
 }
 
 _attach() {
     local port=$1
-    tmux attach -t "rsm-$port"
+    tmux -S $rsm_tmux_sock attach -t "rsm-$port"
 }
 
 _list_sessions() {
-    tmux ls 2>/dev/null | grep -E '^rsm-[0-9]+:' | sed 's/:.*//g'
+    tmux -S $rsm_tmux_sock ls 2>/dev/null | grep -E '^rsm-[0-9]+:' | sed 's/:.*//g'
 }
 
 _list_ports() {
@@ -207,12 +208,12 @@ _check_exist_rsm() {
 }
 
 _check_exist_rsm_at() {
-    [[ `tmux ls 2>/dev/null | grep -E "^rsm-$port:" 2>/dev/null` ]] \
+    [[ `tmux -S $rsm_tmux_sock ls 2>/dev/null | grep -E "^rsm-$port:" 2>/dev/null` ]] \
         || _error "Nothing listening on port $1."
 }
 
 _check_no_rsm_at() {
-    [[ `tmux ls 2>/dev/null | grep -E "^rsm-$port:" 2>/dev/null` ]] \
+    [[ `tmux -S $rsm_tmux_sock ls 2>/dev/null | grep -E "^rsm-$port:" 2>/dev/null` ]] \
         && _error "Already listening on port $1."
 }
 
@@ -229,6 +230,8 @@ _check_requirements() {
 #===================================================================================
 
 [[ $# = 0 ]] && _error "No argument." rsm_help
+
+mkdir -p $rsm_temp_dir
 
 case $1 in
 detached|d|-d|--detached)
