@@ -129,7 +129,7 @@ _start() {
         tmux -S $rsm_tmux_sock new-window -t $session -n \$src \"
             echo \$(date), connection from: \$src
             echo ________________________________________________________________
-            sleep 1
+            until [[ -S $dir/\$name ]]; do sleep 0.1; done
             ncat -U $dir/\$name
         \"
         ncat -lU $dir/\$name
