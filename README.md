@@ -13,6 +13,8 @@ cd rsm
 ./rsm 11111
 # You will attach to a tmux session called 'rsm-11111',
 # where 11111 is your listening port.
+# You will not see rsm session when you open tmux
+# because it uses its own tmux socket.
 ```
 
 On victim's machine, launch a reverse shell
@@ -37,12 +39,10 @@ Stop the server and cleanup
 # Stop all rsm listeners
 ```
 
-[![asciicast](https://asciinema.org/a/n5KdNGnDYunp5QFzpZh7OgHsg.png)](https://asciinema.org/a/n5KdNGnDYunp5QFzpZh7OgHsg)
-
 ## Install
 
 ```shell
-git clone --depth 1 https://github.com/djosix/rsm.git ~/.rsm
+git clone --depth 1 https://github.com/djosix/rsm.git $HOME/.rsm
 # Then add $HOME/.rsm to your PATH
 ```
 
@@ -53,15 +53,15 @@ $ rsm help
 Usage:
 
     rsm PORT            Start a reverse shell listener on PORT
-    rsm -d PORT         Start a detatched reverse shell listener on PORT
-    rsm list            List active rsm listeners
-    rsm info PORT       Show details of listener on PORT
-    rsm info            Show details of all rsm listeners
-    rsm stop PORT       Stop a rsm listener on PORT
-    rsm stop            Stop all rsm listeners
-    rsm attach PORT     Attach to a rsm session listening on PORT
-    rsm attach          Attach to the last rsm session
-    rsm clean PORT      Clean sockets for PORT
-    rsm clean           Clean all sockets
-    rsm help            Show this help message
+    rsm d[etached] PORT Start a detached reverse shell listener on PORT
+    rsm l[ist]          List active rsm listeners
+    rsm i[nfo] PORT     Show details of listener on PORT
+    rsm i[nfo]          Show details of all rsm listeners
+    rsm s[top] PORT     Stop a rsm listener on PORT
+    rsm s[top]          Stop all rsm listeners
+    rsm a[ttach] PORT   Attach to a rsm session listening on PORT
+    rsm a[ttach]        Attach to the last rsm session
+    rsm c[lean] PORT    Clean sockets for PORT
+    rsm c[lean]         Clean all sockets
+    rsm h[elp]          Show this help message
 ```
