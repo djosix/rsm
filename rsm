@@ -2,6 +2,7 @@
 
 rsm_temp_dir=/tmp/.rsm
 rsm_tmux_sock=$rsm_temp_dir/tmux_socket
+max_connections=128
 top_pid=$$
 
 rsm_start() {
@@ -123,8 +124,11 @@ _start() {
     printf '  || RSM will be listening on port %-6s        ||\n' $port'.'
     echo   '   =============================================== ' 
     echo
-    ncat -c '
-        src=\$NCAT_REMOTE_ADDR:\$NCAT_REMOTE_PORT
+    ncat -v -m $max_connections -k -l $port -c '
+        IP=\$NCAT_REMOTE_ADDR
+        PORT=\$NCAT_REMOTE_PORT
+        src=\$IP:\$PORT
+        [[ \$HOOK ]] && eval \$HOOK
         name=client-\${src}-\$(date +%Y.%m.%d-%H:%M:%S)
         tmux -S $rsm_tmux_sock new-window -t $session -n \$src \"
             echo \$(date), connection from: \$src
@@ -134,7 +138,7 @@ _start() {
         \"
         ncat -lU $dir/\$name
         rm -f $dir/\$name
-        ' -vlk $port || {
+        ' || {
             echo
             echo '   ========================================== '
             echo '  || Window will be closed after 5 seconds, ||'
