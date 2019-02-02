@@ -128,7 +128,7 @@ _start() {
         IP=\$NCAT_REMOTE_ADDR
         PORT=\$NCAT_REMOTE_PORT
         src=\$IP:\$PORT
-        [[ \$HOOK ]] && eval \$HOOK
+        eval \$HOOK
         name=client-\${src}-\$(date +%Y.%m.%d-%H:%M:%S)
         tmux -S $rsm_tmux_sock new-window -t $session -n \$src \"
             echo \$(date), connection from: \$src
