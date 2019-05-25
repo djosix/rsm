@@ -1,8 +1,8 @@
 #!/bin/bash
 
-rsm_temp_dir=/tmp/.rsm
-rsm_tmux_sock=$rsm_temp_dir/tmux_socket
-max_connections=128
+rsm_temp_dir=${RSM_DIR:-/tmp/.rsm}
+rsm_tmux_sock=$rsm_temp_dir/tmux.sock
+max_connections=${MAX_CONN:-128}
 top_pid=$$
 
 rsm_start() {
