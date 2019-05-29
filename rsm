@@ -3,7 +3,12 @@
 rsm_temp_dir=${RSM_DIR:-/tmp/.rsm}
 rsm_tmux_sock=$rsm_temp_dir/tmux.sock
 max_connections=${MAX_CONN:-128}
+max_recv_mb=${MAX_RECV:-64}
+
 top_pid=$$
+[[ $max_recv_mb ]] \
+    && cat='head -c '$(( max_recv_mb * 1024 * 1024 )) \
+    || cat=cat
 
 rsm_start() {
     local port=$1
@@ -117,6 +122,7 @@ _start() {
     local session=rsm-$port
     mkdir -p $dir
     tmux -S $rsm_tmux_sock new -s $session -n listener $rsm_tmux_option "
+    eval \$WITH &
     echo Starting...
     echo
     echo   '   =============================================== '
@@ -134,7 +140,7 @@ _start() {
             echo \$(date), connection from: \$src
             echo ________________________________________________________________
             until [[ -S $dir/\$name ]]; do sleep 0.1; done
-            ncat -U $dir/\$name
+            ncat -U $dir/\$name | $cat
         \"
         ncat -lU $dir/\$name
         rm -f $dir/\$name
