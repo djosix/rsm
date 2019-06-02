@@ -2,8 +2,8 @@
 
 rsm_temp_dir=${RSM_DIR:-/tmp/.rsm}
 rsm_tmux_sock=$rsm_temp_dir/tmux.sock
-max_connections=${MAX_CONN:-128}
-max_recv_mb=${MAX_RECV:-64}
+max_connections=${RSM_MAX_CONN:-128}
+max_recv_mb=${RSM_MAX_RECV:-64}
 
 top_pid=$$
 [[ $max_recv_mb ]] \
@@ -122,7 +122,7 @@ _start() {
     local session=rsm-$port
     mkdir -p $dir
     tmux -S $rsm_tmux_sock new -s $session -n listener $rsm_tmux_option "
-    eval \$WITH &
+    eval \$RSM_WITH &
     echo Starting...
     echo
     echo   '   =============================================== '
@@ -134,7 +134,7 @@ _start() {
         IP=\$NCAT_REMOTE_ADDR
         PORT=\$NCAT_REMOTE_PORT
         src=\$IP:\$PORT
-        eval \$HOOK
+        eval \$RSM_HOOK
         name=client-\${src}-\$(date +%Y.%m.%d-%H:%M:%S)
         tmux -S $rsm_tmux_sock new-window -t $session -n \$src \"
             echo \$(date), connection from: \$src
