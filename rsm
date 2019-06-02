@@ -104,6 +104,14 @@ rsm_help() {
     rsm c[lean] PORT    Clean sockets for PORT
     rsm c[lean]         Clean all sockets
     rsm h[elp]          Show this help message
+
+    Configurable Variables:
+
+        RSM_DIR         Where the rsm sockets be stored (default: /tmp/.rsm)
+        RSM_MAX_CONN    Maximum number of connections (default: 128)
+        RSM_MAX_RECV    Maximum receiving MB (default: 64)
+        RSM_HOOK        Command to eval when a client connects
+        RSM_WITH        Command to eval when rsm starts
 "
 }
 

