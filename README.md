@@ -10,6 +10,14 @@ curl -o "$BIN_PATH" https://raw.githubusercontent.com/djosix/rsm/master/rsm
 chmod +x "$BIN_PATH"
 ```
 
+If the bash script is not working you can try Python version (translated by gpt-o1-preview)
+
+```shell
+BIN_PATH=/usr/local/bin/rsm
+curl -o "$BIN_PATH" https://raw.githubusercontent.com/djosix/rsm/master/rsm.py
+chmod +x "$BIN_PATH"
+```
+
 ## Quick Start
 
 1. Listen on a port and attach to rsm tmux session:
