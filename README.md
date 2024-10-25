@@ -1,4 +1,8 @@
-# rsm
+# Notice
+
+**I will not maintain this repo from now on.** I have developed a new alternative with significant improvements over this project. Please refer to [this new `rsm` script](https://github.com/djosix/RaaS/blob/main/rsm.py).
+
+## Introduction
 
 A simple reverse shell manager using `tmux` and `ncat`.
 
